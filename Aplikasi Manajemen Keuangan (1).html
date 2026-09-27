@@ -1,0 +1,1571 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manajemen Keuangan - Smart Finance</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // Currency Formatter for Indonesian Rupiah
+        const formatRupiah = (number) => {
+            return new Intl.NumberFormat('id-ID', {
+                style: 'currency',
+                currency: 'IDR',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(number || 0);
+        };
+
+        // Predefined Available Icons for Account & Categories
+        const AVAILABLE_ICONS = [
+            'fa-wallet', 'fa-building-columns', 'fa-credit-card', 'fa-money-bill-wave',
+            'fa-piggy-bank', 'fa-utensils', 'fa-cart-shopping', 'fa-car', 'fa-house',
+            'fa-bolt', 'fa-gamepad', 'fa-heart-pulse', 'fa-graduation-cap', 'fa-briefcase',
+            'fa-gift', 'fa-chart-line', 'fa-circle-dollar-to-slot', 'fa-mobile-screen'
+        ];
+
+        // Predefined Colors
+        const COLOR_OPTIONS = [
+            { name: 'Emerald', bg: 'bg-emerald-500', text: 'text-emerald-500', hex: '#10b981' },
+            { name: 'Blue', bg: 'bg-blue-600', text: 'text-blue-600', hex: '#2563eb' },
+            { name: 'Indigo', bg: 'bg-indigo-600', text: 'text-indigo-600', hex: '#4f46e5' },
+            { name: 'Purple', bg: 'bg-purple-600', text: 'text-purple-600', hex: '#9333ea' },
+            { name: 'Rose', bg: 'bg-rose-500', text: 'text-rose-500', hex: '#f43f5e' },
+            { name: 'Amber', bg: 'bg-amber-500', text: 'text-amber-500', hex: '#f59e0b' },
+            { name: 'Cyan', bg: 'bg-cyan-500', text: 'text-cyan-500', hex: '#06b6d4' },
+            { name: 'Slate', bg: 'bg-slate-600', text: 'text-slate-600', hex: '#475569' },
+        ];
+
+        // Initial Data Default Seed
+        const DEFAULT_ACCOUNTS = [
+            { id: 'acc-1', name: 'Cash / Tunai', type: 'Cash', balance: 750000, icon: 'fa-wallet', color: 'bg-emerald-500', colorHex: '#10b981' },
+            { id: 'acc-2', name: 'Bank BCA', type: 'Bank', balance: 4250000, icon: 'fa-building-columns', color: 'bg-blue-600', colorHex: '#2563eb' },
+            { id: 'acc-3', name: 'Bank Mandiri', type: 'Bank', balance: 2100000, icon: 'fa-building-columns', color: 'bg-indigo-600', colorHex: '#4f46e5' },
+            { id: 'acc-4', name: 'GoPay / E-Wallet', type: 'E-Wallet', balance: 350000, icon: 'fa-mobile-screen', color: 'bg-cyan-500', colorHex: '#06b6d4' },
+        ];
+
+        const DEFAULT_CATEGORIES = [
+            { id: 'cat-1', name: 'Gaji / Income', type: 'income', icon: 'fa-briefcase', color: 'bg-emerald-500' },
+            { id: 'cat-2', name: 'Bonus & Hadiah', type: 'income', icon: 'fa-gift', color: 'bg-indigo-600' },
+            { id: 'cat-3', name: 'Investasi', type: 'income', icon: 'fa-chart-line', color: 'bg-blue-600' },
+            { id: 'cat-4', name: 'Makanan & Minuman', type: 'expense', icon: 'fa-utensils', color: 'bg-amber-500' },
+            { id: 'cat-5', name: 'Belanja Bulanan', type: 'expense', icon: 'fa-cart-shopping', color: 'bg-purple-600' },
+            { id: 'cat-6', name: 'Transportasi', type: 'expense', icon: 'fa-car', color: 'bg-cyan-500' },
+            { id: 'cat-7', name: 'Tagihan & Listrik', type: 'expense', icon: 'fa-bolt', color: 'bg-rose-500' },
+            { id: 'cat-8', name: 'Hiburan & Hobi', type: 'expense', icon: 'fa-gamepad', color: 'bg-slate-600' },
+        ];
+
+        const DEFAULT_TRANSACTIONS = [
+            {
+                id: 'tx-1',
+                date: new Date().toISOString().split('T')[0],
+                type: 'income',
+                amount: 6000000,
+                accountId: 'acc-2',
+                categoryId: 'cat-1',
+                description: 'Gaji Bulanan Kantor',
+            },
+            {
+                id: 'tx-2',
+                date: new Date().toISOString().split('T')[0],
+                type: 'expense',
+                amount: 85000,
+                accountId: 'acc-1',
+                categoryId: 'cat-4',
+                description: 'Makan Siang & Kopi',
+            },
+            {
+                id: 'tx-3',
+                date: new Date().toISOString().split('T')[0],
+                type: 'expense',
+                amount: 350000,
+                accountId: 'acc-2',
+                categoryId: 'cat-7',
+                description: 'Bayar Wifi & Listrik',
+            }
+        ];
+
+        function App() {
+            // LocalStorage State Initialization
+            const [accounts, setAccounts] = useState(() => {
+                const saved = localStorage.getItem('fin_accounts');
+                return saved ? JSON.parse(saved) : DEFAULT_ACCOUNTS;
+            });
+
+            const [categories, setCategories] = useState(() => {
+                const saved = localStorage.getItem('fin_categories');
+                return saved ? JSON.parse(saved) : DEFAULT_CATEGORIES;
+            });
+
+            const [transactions, setTransactions] = useState(() => {
+                const saved = localStorage.getItem('fin_transactions');
+                return saved ? JSON.parse(saved) : DEFAULT_TRANSACTIONS;
+            });
+
+            // UI Navigation State
+            const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard', 'transactions', 'accounts', 'categories'
+            const [searchQuery, setSearchQuery] = useState('');
+            const [filterCategory, setFilterCategory] = useState('all');
+            const [filterAccount, setFilterAccount] = useState('all');
+            const [filterType, setFilterType] = useState('all');
+
+            // Modal States
+            const [modalType, setModalType] = useState(null); // 'transaction', 'transfer', 'account', 'category'
+            
+            // Form States
+            const [txForm, setTxForm] = useState({
+                type: 'expense',
+                amount: '',
+                accountId: '',
+                categoryId: '',
+                date: new Date().toISOString().split('T')[0],
+                description: ''
+            });
+
+            const [transferForm, setTransferForm] = useState({
+                fromAccountId: '',
+                toAccountId: '',
+                amount: '',
+                fee: 0,
+                date: new Date().toISOString().split('T')[0],
+                description: ''
+            });
+
+            const [accountForm, setAccountForm] = useState({
+                name: '',
+                type: 'Bank',
+                balance: '',
+                icon: 'fa-building-columns',
+                color: 'bg-blue-600',
+                colorHex: '#2563eb'
+            });
+
+            const [categoryForm, setCategoryForm] = useState({
+                name: '',
+                type: 'expense',
+                icon: 'fa-cart-shopping',
+                color: 'bg-amber-500'
+            });
+
+            // Notification / Alert Message
+            const [notification, setNotification] = useState(null);
+
+            // Sync state to LocalStorage
+            useEffect(() => {
+                localStorage.setItem('fin_accounts', JSON.stringify(accounts));
+            }, [accounts]);
+
+            useEffect(() => {
+                localStorage.setItem('fin_categories', JSON.stringify(categories));
+            }, [categories]);
+
+            useEffect(() => {
+                localStorage.setItem('fin_transactions', JSON.stringify(transactions));
+            }, [transactions]);
+
+            const showNotify = (msg, type = 'success') => {
+                setNotification({ msg, type });
+                setTimeout(() => setNotification(null), 3000);
+            };
+
+            const totalBalance = useMemo(() => {
+                return accounts.reduce((acc, curr) => acc + Number(curr.balance), 0);
+            }, [accounts]);
+
+            const currentMonthStats = useMemo(() => {
+                const now = new Date();
+                const currentMonth = now.getMonth();
+                const currentYear = now.getFullYear();
+
+                let income = 0;
+                let expense = 0;
+
+                transactions.forEach(t => {
+                    const tDate = new Date(t.date);
+                    if (tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear) {
+                        if (t.type === 'income') income += Number(t.amount);
+                        if (t.type === 'expense') expense += Number(t.amount);
+                    }
+                });
+
+                return { income, expense, net: income - expense };
+            }, [transactions]);
+
+            const handleAddTransaction = (e) => {
+                e.preventDefault();
+                const amountNum = parseFloat(txForm.amount);
+                
+                if (!amountNum || amountNum <= 0) {
+                    showNotify('Jumlah nominal harus lebih dari 0', 'error');
+                    return;
+                }
+                if (!txForm.accountId) {
+                    showNotify('Silakan pilih akun / rekening', 'error');
+                    return;
+                }
+                if (!txForm.categoryId) {
+                    showNotify('Silakan pilih kategori', 'error');
+                    return;
+                }
+
+                const newTx = {
+                    id: 'tx-' + Date.now(),
+                    date: txForm.date,
+                    type: txForm.type,
+                    amount: amountNum,
+                    accountId: txForm.accountId,
+                    categoryId: txForm.categoryId,
+                    description: txForm.description || (txForm.type === 'income' ? 'Pemasukan' : 'Pengeluaran')
+                };
+
+                // Update Account Balance
+                setAccounts(prev => prev.map(acc => {
+                    if (acc.id === txForm.accountId) {
+                        const balanceChange = txForm.type === 'income' ? amountNum : -amountNum;
+                        return { ...acc, balance: Number(acc.balance) + balanceChange };
+                    }
+                    return acc;
+                }));
+
+                setTransactions(prev => [newTx, ...prev]);
+                setModalType(null);
+                setTxForm({
+                    type: 'expense',
+                    amount: '',
+                    accountId: accounts[0]?.id || '',
+                    categoryId: '',
+                    date: new Date().toISOString().split('T')[0],
+                    description: ''
+                });
+                showNotify('Transaksi berhasil dicatat!');
+            };
+
+            const handleTransfer = (e) => {
+                e.preventDefault();
+                const amountNum = parseFloat(transferForm.amount);
+                const feeNum = parseFloat(transferForm.fee) || 0;
+
+                if (transferForm.fromAccountId === transferForm.toAccountId) {
+                    showNotify('Akun asal dan tujuan tidak boleh sama', 'error');
+                    return;
+                }
+                if (!amountNum || amountNum <= 0) {
+                    showNotify('Jumlah transfer harus lebih dari 0', 'error');
+                    return;
+                }
+
+                const sourceAcc = accounts.find(a => a.id === transferForm.fromAccountId);
+                if (!sourceAcc || sourceAcc.balance < (amountNum + feeNum)) {
+                    showNotify('Saldo akun asal tidak mencukupi', 'error');
+                    return;
+                }
+
+                // Deduct from source, add to target
+                setAccounts(prev => prev.map(acc => {
+                    if (acc.id === transferForm.fromAccountId) {
+                        return { ...acc, balance: Number(acc.balance) - (amountNum + feeNum) };
+                    }
+                    if (acc.id === transferForm.toAccountId) {
+                        return { ...acc, balance: Number(acc.balance) + amountNum };
+                    }
+                    return acc;
+                }));
+
+                const sourceName = accounts.find(a => a.id === transferForm.fromAccountId)?.name;
+                const targetName = accounts.find(a => a.id === transferForm.toAccountId)?.name;
+
+                // Create a record for audit trail
+                const transferTx = {
+                    id: 'tx-' + Date.now(),
+                    date: transferForm.date,
+                    type: 'transfer',
+                    amount: amountNum,
+                    fee: feeNum,
+                    accountId: transferForm.fromAccountId,
+                    targetAccountId: transferForm.toAccountId,
+                    description: transferForm.description || `Transfer dari ${sourceName} ke ${targetName}`
+                };
+
+                setTransactions(prev => [transferTx, ...prev]);
+                setModalType(null);
+                setTransferForm({
+                    fromAccountId: '',
+                    toAccountId: '',
+                    amount: '',
+                    fee: 0,
+                    date: new Date().toISOString().split('T')[0],
+                    description: ''
+                });
+                showNotify('Pindah saldo berhasil!');
+            };
+
+            const handleAddAccount = (e) => {
+                e.preventDefault();
+                if (!accountForm.name.trim()) {
+                    showNotify('Nama akun/bank tidak boleh kosong', 'error');
+                    return;
+                }
+
+                const newAcc = {
+                    id: 'acc-' + Date.now(),
+                    name: accountForm.name,
+                    type: accountForm.type,
+                    balance: parseFloat(accountForm.balance) || 0,
+                    icon: accountForm.icon,
+                    color: accountForm.color,
+                    colorHex: COLOR_OPTIONS.find(c => c.bg === accountForm.color)?.hex || '#2563eb'
+                };
+
+                setAccounts(prev => [...prev, newAcc]);
+                setModalType(null);
+                setAccountForm({
+                    name: '',
+                    type: 'Bank',
+                    balance: '',
+                    icon: 'fa-building-columns',
+                    color: 'bg-blue-600',
+                    colorHex: '#2563eb'
+                });
+                showNotify('Akun/Bank baru berhasil ditambahkan!');
+            };
+
+            const handleAddCategory = (e) => {
+                e.preventDefault();
+                if (!categoryForm.name.trim()) {
+                    showNotify('Nama kategori tidak boleh kosong', 'error');
+                    return;
+                }
+
+                const newCat = {
+                    id: 'cat-' + Date.now(),
+                    name: categoryForm.name,
+                    type: categoryForm.type,
+                    icon: categoryForm.icon,
+                    color: categoryForm.color
+                };
+
+                setCategories(prev => [...prev, newCat]);
+                setModalType(null);
+                setCategoryForm({
+                    name: '',
+                    type: 'expense',
+                    icon: 'fa-cart-shopping',
+                    color: 'bg-amber-500'
+                });
+                showNotify('Kategori baru berhasil ditambahkan!');
+            };
+
+            const handleDeleteTransaction = (id) => {
+                const tx = transactions.find(t => t.id === id);
+                if (!tx) return;
+
+                if (window.confirm('Apakah Anda yakin ingin menghapus transaksi ini?')) {
+                    // Revert account balances
+                    setAccounts(prev => prev.map(acc => {
+                        if (tx.type === 'income' && acc.id === tx.accountId) {
+                            return { ...acc, balance: Number(acc.balance) - tx.amount };
+                        } else if (tx.type === 'expense' && acc.id === tx.accountId) {
+                            return { ...acc, balance: Number(acc.balance) + tx.amount };
+                        } else if (tx.type === 'transfer') {
+                            if (acc.id === tx.accountId) {
+                                return { ...acc, balance: Number(acc.balance) + tx.amount + (tx.fee || 0) };
+                            }
+                            if (acc.id === tx.targetAccountId) {
+                                return { ...acc, balance: Number(acc.balance) - tx.amount };
+                            }
+                        }
+                        return acc;
+                    }));
+
+                    setTransactions(prev => prev.filter(t => t.id !== id));
+                    showNotify('Transaksi berhasil dihapus');
+                }
+            };
+
+            // Reset App Data
+            const handleResetData = () => {
+                if (window.confirm('Apakah Anda yakin ingin menghapus seluruh data dan menyetel ulang ke awal?')) {
+                    localStorage.clear();
+                    setAccounts(DEFAULT_ACCOUNTS);
+                    setCategories(DEFAULT_CATEGORIES);
+                    setTransactions(DEFAULT_TRANSACTIONS);
+                    showNotify('Data berhasil diriset ke awal');
+                }
+            };
+
+            const filteredTransactions = useMemo(() => {
+                return transactions.filter(tx => {
+                    const matchesSearch = tx.description.toLowerCase().includes(searchQuery.toLowerCase());
+                    const matchesCategory = filterCategory === 'all' || tx.categoryId === filterCategory;
+                    const matchesAccount = filterAccount === 'all' || tx.accountId === filterAccount || tx.targetAccountId === filterAccount;
+                    const matchesType = filterType === 'all' || tx.type === filterType;
+
+                    return matchesSearch && matchesCategory && matchesAccount && matchesType;
+                });
+            }, [transactions, searchQuery, filterCategory, filterAccount, filterType]);
+
+            return (
+                <div className="min-h-screen flex flex-col md:flex-row pb-20 md:pb-0">
+                    
+                    {/* Notification Toast */}
+                    {notification && (
+                        <div className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-xl shadow-lg font-medium flex items-center gap-3 transition-all animate-bounce ${
+                            notification.type === 'error' ? 'bg-rose-500 text-white' : 'bg-emerald-600 text-white'
+                        }`}>
+                            <i className={`fa-solid ${notification.type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check'}`}></i>
+                            {notification.msg}
+                        </div>
+                    )}
+
+                    {/* Sidebar Desktop */}
+                    <aside className="w-full md:w-64 bg-slate-900 text-slate-300 p-5 hidden md:flex md:flex-col justify-between border-r border-slate-800">
+                        <div>
+                            {/* Logo */}
+                            <div className="flex items-center gap-3 text-white mb-8 px-2">
+                                <div className="w-10 h-10 rounded-xl bg-sky-500 flex items-center justify-center text-white shadow-lg shadow-sky-500/30">
+                                    <i className="fa-solid fa-wallet text-xl"></i>
+                                </div>
+                                <div>
+                                    <h1 className="font-bold text-lg leading-tight">FinansialKu</h1>
+                                    <p className="text-xs text-slate-400">Kelola Uang & Bank</p>
+                                </div>
+                            </div>
+
+                            {/* Menu Links */}
+                            <nav className="space-y-1">
+                                <button
+                                    onClick={() => setActiveTab('dashboard')}
+                                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                                        activeTab === 'dashboard' ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30' : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
+                                    }`}
+                                >
+                                    <i className="fa-solid fa-chart-pie w-5 text-center"></i>
+                                    Dashboard
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('transactions')}
+                                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                                        activeTab === 'transactions' ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30' : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
+                                    }`}
+                                >
+                                    <i className="fa-solid fa-list-check w-5 text-center"></i>
+                                    Riwayat Transaksi
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('accounts')}
+                                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                                        activeTab === 'accounts' ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30' : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
+                                    }`}
+                                >
+                                    <i className="fa-solid fa-building-columns w-5 text-center"></i>
+                                    Akun & Bank ({accounts.length})
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('categories')}
+                                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                                        activeTab === 'categories' ? 'bg-sky-600 text-white shadow-md shadow-sky-600/30' : 'hover:bg-slate-800 text-slate-400 hover:text-slate-200'
+                                    }`}
+                                >
+                                    <i className="fa-solid fa-tags w-5 text-center"></i>
+                                    Kategori
+                                </button>
+                            </nav>
+                        </div>
+
+                        {/* Quick Transfer & Reset Buttons */}
+                        <div className="pt-6 border-t border-slate-800 space-y-2">
+                            <button
+                                onClick={() => {
+                                    setTransferForm(prev => ({
+                                        ...prev,
+                                        fromAccountId: accounts[0]?.id || '',
+                                        toAccountId: accounts[1]?.id || ''
+                                    }));
+                                    setModalType('transfer');
+                                }}
+                                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-sky-400 rounded-xl text-xs font-semibold transition"
+                            >
+                                <i className="fa-solid fa-arrow-right-arrow-left"></i>
+                                Transfer Antar Rekening
+                            </button>
+                            <button
+                                onClick={handleResetData}
+                                className="w-full flex items-center justify-center gap-2 py-2 px-4 hover:bg-rose-950/30 text-rose-400 rounded-xl text-xs transition"
+                            >
+                                <i className="fa-solid fa-rotate-left"></i>
+                                Reset Data
+                            </button>
+                        </div>
+                    </aside>
+
+                    {/* Header Mobile */}
+                    <header className="md:hidden bg-slate-900 text-white p-4 flex items-center justify-between sticky top-0 z-30 shadow-md">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-lg bg-sky-500 flex items-center justify-center text-white">
+                                <i className="fa-solid fa-wallet text-sm"></i>
+                            </div>
+                            <span className="font-bold text-base">FinansialKu</span>
+                        </div>
+                        <button
+                            onClick={() => {
+                                setTransferForm(prev => ({
+                                    ...prev,
+                                    fromAccountId: accounts[0]?.id || '',
+                                    toAccountId: accounts[1]?.id || ''
+                                }));
+                                setModalType('transfer');
+                            }}
+                            className="text-xs bg-sky-600 px-3 py-1.5 rounded-lg flex items-center gap-1 font-medium"
+                        >
+                            <i className="fa-solid fa-right-left"></i>
+                            Pindah Saldo
+                        </button>
+                    </header>
+
+                    {/* Bottom Navigation Mobile */}
+                    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-3 py-2 flex justify-around z-40 shadow-lg">
+                        <button
+                            onClick={() => setActiveTab('dashboard')}
+                            className={`flex flex-col items-center gap-1 text-xs font-medium ${activeTab === 'dashboard' ? 'text-sky-600' : 'text-slate-400'}`}
+                        >
+                            <i className="fa-solid fa-chart-pie text-base"></i>
+                            <span>Beranda</span>
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('transactions')}
+                            className={`flex flex-col items-center gap-1 text-xs font-medium ${activeTab === 'transactions' ? 'text-sky-600' : 'text-slate-400'}`}
+                        >
+                            <i className="fa-solid fa-list-check text-base"></i>
+                            <span>Transaksi</span>
+                        </button>
+                        <button
+                            onClick={() => {
+                                setTxForm(prev => ({ ...prev, accountId: accounts[0]?.id || '', categoryId: categories[0]?.id || '' }));
+                                setModalType('transaction');
+                            }}
+                            className="flex flex-col items-center justify-center -mt-6 w-12 h-12 bg-sky-600 text-white rounded-full shadow-lg shadow-sky-600/40"
+                        >
+                            <i className="fa-solid fa-plus text-lg"></i>
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('accounts')}
+                            className={`flex flex-col items-center gap-1 text-xs font-medium ${activeTab === 'accounts' ? 'text-sky-600' : 'text-slate-400'}`}
+                        >
+                            <i className="fa-solid fa-building-columns text-base"></i>
+                            <span>Akun/Bank</span>
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('categories')}
+                            className={`flex flex-col items-center gap-1 text-xs font-medium ${activeTab === 'categories' ? 'text-sky-600' : 'text-slate-400'}`}
+                        >
+                            <i className="fa-solid fa-tags text-base"></i>
+                            <span>Kategori</span>
+                        </button>
+                    </nav>
+
+                    {/* Main Content Area */}
+                    <main className="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full overflow-y-auto">
+                        
+                        {}
+                        {activeTab === 'dashboard' && (
+                            <div className="space-y-6">
+                                {/* Top Welcome Bar & Action Buttons */}
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-slate-800">Ringkasan Keuangan</h2>
+                                        <p className="text-slate-500 text-sm">Pantau aliran arus kas dan saldo di semua akun bank Anda.</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => {
+                                                setTxForm({
+                                                    type: 'income',
+                                                    amount: '',
+                                                    accountId: accounts[0]?.id || '',
+                                                    categoryId: categories.find(c => c.type === 'income')?.id || '',
+                                                    date: new Date().toISOString().split('T')[0],
+                                                    description: ''
+                                                });
+                                                setModalType('transaction');
+                                            }}
+                                            className="flex-1 md:flex-none px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2 shadow-sm transition"
+                                        >
+                                            <i className="fa-solid fa-plus-circle"></i>
+                                            Uang Masuk
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setTxForm({
+                                                    type: 'expense',
+                                                    amount: '',
+                                                    accountId: accounts[0]?.id || '',
+                                                    categoryId: categories.find(c => c.type === 'expense')?.id || '',
+                                                    date: new Date().toISOString().split('T')[0],
+                                                    description: ''
+                                                });
+                                                setModalType('transaction');
+                                            }}
+                                            className="flex-1 md:flex-none px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2 shadow-sm transition"
+                                        >
+                                            <i className="fa-solid fa-minus-circle"></i>
+                                            Uang Keluar
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Financial Summary Cards */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    {/* Total Balance Card */}
+                                    <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-6 rounded-2xl shadow-lg relative overflow-hidden">
+                                        <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 opacity-10 text-9xl">
+                                            <i className="fa-solid fa-wallet"></i>
+                                        </div>
+                                        <p className="text-slate-400 text-xs font-medium tracking-wide uppercase">Total Saldo Semua Akun</p>
+                                        <h3 className="text-3xl font-extrabold mt-2 tracking-tight">{formatRupiah(totalBalance)}</h3>
+                                        <div className="mt-4 flex items-center text-xs text-slate-300 gap-2">
+                                            <span className="bg-slate-700/80 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                                                <i className="fa-solid fa-building-columns text-sky-400"></i>
+                                                {accounts.length} Akun Terhubung
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Income Card */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Pemasukan Bulan Ini</span>
+                                            <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                                                <i className="fa-solid fa-arrow-down"></i>
+                                            </div>
+                                        </div>
+                                        <div className="mt-4">
+                                            <h3 className="text-2xl font-bold text-slate-800">{formatRupiah(currentMonthStats.income)}</h3>
+                                            <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1 font-medium">
+                                                <i className="fa-solid fa-circle-info"></i>
+                                                Pemasukan terorganisir
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Expense Card */}
+                                    <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Pengeluaran Bulan Ini</span>
+                                            <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
+                                                <i className="fa-solid fa-arrow-up"></i>
+                                            </div>
+                                        </div>
+                                        <div className="mt-4">
+                                            <h3 className="text-2xl font-bold text-slate-800">{formatRupiah(currentMonthStats.expense)}</h3>
+                                            <p className="text-xs text-rose-600 mt-1 flex items-center gap-1 font-medium">
+                                                <i className="fa-solid fa-chart-line"></i>
+                                                Sisa Kas: {formatRupiah(currentMonthStats.net)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Bank Accounts Overview Grid */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
+                                            <i className="fa-solid fa-building-columns text-sky-600"></i>
+                                            Daftar Saldo Akun / Rekening
+                                        </h3>
+                                        <button
+                                            onClick={() => setActiveTab('accounts')}
+                                            className="text-xs font-semibold text-sky-600 hover:text-sky-700"
+                                        >
+                                            Kelola Akun &rarr;
+                                        </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                        {accounts.map(acc => (
+                                            <div key={acc.id} className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+                                                <div className="flex items-center justify-between mb-3">
+                                                    <div className={`w-10 h-10 rounded-xl ${acc.color} text-white flex items-center justify-center text-base shadow-sm`}>
+                                                        <i className={`fa-solid ${acc.icon}`}></i>
+                                                    </div>
+                                                    <span className="text-[11px] font-semibold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
+                                                        {acc.type}
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs font-medium text-slate-500">{acc.name}</p>
+                                                <p className="text-lg font-bold text-slate-800 mt-0.5">{formatRupiah(acc.balance)}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Recent Transactions Section */}
+                                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="font-bold text-slate-800 text-base">Transaksi Terakhir</h3>
+                                        <button
+                                            onClick={() => setActiveTab('transactions')}
+                                            className="text-xs font-semibold text-sky-600 hover:text-sky-700"
+                                        >
+                                            Lihat Semua &rarr;
+                                        </button>
+                                    </div>
+
+                                    <div className="divide-y divide-slate-100">
+                                        {transactions.slice(0, 5).map(tx => {
+                                            const category = categories.find(c => c.id === tx.categoryId);
+                                            const account = accounts.find(a => a.id === tx.accountId);
+                                            const targetAccount = accounts.find(a => a.id === tx.targetAccountId);
+
+                                            return (
+                                                <div key={tx.id} className="py-3 flex items-center justify-between gap-3">
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <div className={`w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-white ${
+                                                            tx.type === 'income' ? 'bg-emerald-500' : tx.type === 'expense' ? 'bg-rose-500' : 'bg-indigo-600'
+                                                        }`}>
+                                                            <i className={`fa-solid ${
+                                                                tx.type === 'income' ? 'fa-arrow-down' : tx.type === 'expense' ? 'fa-arrow-up' : 'fa-arrow-right-arrow-left'
+                                                            }`}></i>
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-semibold text-slate-800 truncate">{tx.description}</p>
+                                                            <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
+                                                                <span>{tx.date}</span>
+                                                                <span>•</span>
+                                                                <span className="truncate">
+                                                                    {tx.type === 'transfer' 
+                                                                        ? `${account?.name} → ${targetAccount?.name}` 
+                                                                        : `${account?.name || 'Akun'} (${category?.name || 'Kategori'})`}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="text-right flex-shrink-0">
+                                                        <p className={`text-sm font-bold ${
+                                                            tx.type === 'income' ? 'text-emerald-600' : tx.type === 'expense' ? 'text-rose-600' : 'text-indigo-600'
+                                                        }`}>
+                                                            {tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : ''}{formatRupiah(tx.amount)}
+                                                        </p>
+                                                        {tx.fee > 0 && (
+                                                            <p className="text-[10px] text-slate-400">Biaya: {formatRupiah(tx.fee)}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+
+                                        {transactions.length === 0 && (
+                                            <div className="text-center py-8 text-slate-400 text-sm">
+                                                Belum ada transaksi tercatat.
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {}
+                        {activeTab === 'transactions' && (
+                            <div className="space-y-5">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-slate-800">Riwayat Transaksi</h2>
+                                        <p className="text-slate-500 text-sm">Cari dan filter seluruh riwayat uang masuk & keluar.</p>
+                                    </div>
+                                    <button
+                                        onClick={() => {
+                                            setTxForm({
+                                                type: 'expense',
+                                                amount: '',
+                                                accountId: accounts[0]?.id || '',
+                                                categoryId: categories[0]?.id || '',
+                                                date: new Date().toISOString().split('T')[0],
+                                                description: ''
+                                            });
+                                            setModalType('transaction');
+                                        }}
+                                        className="px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2 shadow-sm transition"
+                                    >
+                                        <i className="fa-solid fa-plus"></i>
+                                        Tambah Transaksi
+                                    </button>
+                                </div>
+
+                                {/* Filters Bar */}
+                                <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                                    {/* Search Input */}
+                                    <div className="relative">
+                                        <i className="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
+                                        <input
+                                            type="text"
+                                            placeholder="Cari deskripsi..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                        />
+                                    </div>
+
+                                    {/* Type Filter */}
+                                    <select
+                                        value={filterType}
+                                        onChange={(e) => setFilterType(e.target.value)}
+                                        className="py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                    >
+                                        <option value="all">Semua Tipe (Masuk/Keluar/Transfer)</option>
+                                        <option value="income">Uang Masuk (Pemasukan)</option>
+                                        <option value="expense">Uang Keluar (Pengeluaran)</option>
+                                        <option value="transfer">Transfer Antar Rekening</option>
+                                    </select>
+
+                                    {/* Account Filter */}
+                                    <select
+                                        value={filterAccount}
+                                        onChange={(e) => setFilterAccount(e.target.value)}
+                                        className="py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                    >
+                                        <option value="all">Semua Akun / Bank</option>
+                                        {accounts.map(a => (
+                                            <option key={a.id} value={a.id}>{a.name}</option>
+                                        ))}
+                                    </select>
+
+                                    {/* Category Filter */}
+                                    <select
+                                        value={filterCategory}
+                                        onChange={(e) => setFilterCategory(e.target.value)}
+                                        className="py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                    >
+                                        <option value="all">Semua Kategori</option>
+                                        {categories.map(c => (
+                                            <option key={c.id} value={c.id}>{c.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Transactions Table / Card List */}
+                                <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                                    <div className="divide-y divide-slate-100">
+                                        {filteredTransactions.map(tx => {
+                                            const category = categories.find(c => c.id === tx.categoryId);
+                                            const account = accounts.find(a => a.id === tx.accountId);
+                                            const targetAccount = accounts.find(a => a.id === tx.targetAccountId);
+
+                                            return (
+                                                <div key={tx.id} className="p-4 hover:bg-slate-50/80 transition flex items-center justify-between gap-3">
+                                                    <div className="flex items-center gap-3.5 min-w-0">
+                                                        <div className={`w-11 h-11 rounded-2xl flex-shrink-0 flex items-center justify-center text-white ${
+                                                            tx.type === 'income' ? 'bg-emerald-500' : tx.type === 'expense' ? 'bg-rose-500' : 'bg-indigo-600'
+                                                        }`}>
+                                                            <i className={`fa-solid ${
+                                                                tx.type === 'income' ? 'fa-arrow-down' : tx.type === 'expense' ? 'fa-arrow-up' : 'fa-arrow-right-arrow-left'
+                                                            } text-base`}></i>
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-semibold text-slate-800">{tx.description}</p>
+                                                            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 mt-1">
+                                                                <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-medium">{tx.date}</span>
+                                                                <span>•</span>
+                                                                {tx.type === 'transfer' ? (
+                                                                    <span className="text-slate-600 font-medium">
+                                                                        {account?.name} &rarr; {targetAccount?.name}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-slate-600 font-medium">
+                                                                        {account?.name} | <span className="text-sky-600">{category?.name}</span>
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-4 flex-shrink-0">
+                                                        <div className="text-right">
+                                                            <p className={`text-base font-bold ${
+                                                                tx.type === 'income' ? 'text-emerald-600' : tx.type === 'expense' ? 'text-rose-600' : 'text-indigo-600'
+                                                            }`}>
+                                                                {tx.type === 'income' ? '+' : tx.type === 'expense' ? '-' : ''}{formatRupiah(tx.amount)}
+                                                            </p>
+                                                            {tx.type === 'transfer' && tx.fee > 0 && (
+                                                                <p className="text-[11px] text-slate-400">Biaya Trf: {formatRupiah(tx.fee)}</p>
+                                                            )}
+                                                        </div>
+
+                                                        <button
+                                                            onClick={() => handleDeleteTransaction(tx.id)}
+                                                            className="w-8 h-8 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition flex items-center justify-center"
+                                                            title="Hapus Transaksi"
+                                                        >
+                                                            <i className="fa-solid fa-trash-can text-xs"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+
+                                        {filteredTransactions.length === 0 && (
+                                            <div className="text-center py-12 text-slate-400">
+                                                <i className="fa-solid fa-receipt text-3xl mb-2 text-slate-300"></i>
+                                                <p className="text-sm font-medium">Tidak ada transaksi ditemukan</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {}
+                        {activeTab === 'accounts' && (
+                            <div className="space-y-5">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-slate-800">Manajemen Akun & Bank</h2>
+                                        <p className="text-slate-500 text-sm">Atur rekening bank, e-wallet, dan dompet tunai Anda.</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setModalType('account')}
+                                        className="px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2 shadow-sm transition"
+                                    >
+                                        <i className="fa-solid fa-plus"></i>
+                                        Tambah Akun / Bank
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {accounts.map(acc => (
+                                        <div key={acc.id} className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between">
+                                            <div>
+                                                <div className="flex items-center justify-between mb-4">
+                                                    <div className={`w-12 h-12 rounded-2xl ${acc.color} text-white flex items-center justify-center text-xl shadow-md`}>
+                                                        <i className={`fa-solid ${acc.icon}`}></i>
+                                                    </div>
+                                                    <span className="text-xs font-semibold bg-slate-100 text-slate-600 px-3 py-1 rounded-full">
+                                                        {acc.type}
+                                                    </span>
+                                                </div>
+                                                <h3 className="font-bold text-slate-800 text-lg">{acc.name}</h3>
+                                                <p className="text-slate-400 text-xs mt-0.5">Saldo Tersedia</p>
+                                                <p className="text-2xl font-extrabold text-slate-800 mt-1">{formatRupiah(acc.balance)}</p>
+                                            </div>
+
+                                            <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                                                <span>ID: {acc.id}</span>
+                                                <button
+                                                    onClick={() => {
+                                                        setTransferForm(prev => ({
+                                                            ...prev,
+                                                            fromAccountId: acc.id,
+                                                            toAccountId: accounts.find(a => a.id !== acc.id)?.id || ''
+                                                        }));
+                                                        setModalType('transfer');
+                                                    }}
+                                                    className="font-semibold text-sky-600 hover:text-sky-700 flex items-center gap-1"
+                                                >
+                                                    Transfer Out &rarr;
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {}
+                        {activeTab === 'categories' && (
+                            <div className="space-y-5">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-slate-800">Kategori Transaksi</h2>
+                                        <p className="text-slate-500 text-sm">Atur kategori pengeluaran dan pemasukan untuk analisis keuangan.</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setModalType('category')}
+                                        className="px-4 py-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-medium text-sm flex items-center justify-center gap-2 shadow-sm transition"
+                                    >
+                                        <i className="fa-solid fa-plus"></i>
+                                        Tambah Kategori
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Pemasukan Categories */}
+                                    <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+                                        <h3 className="font-bold text-slate-800 text-base mb-4 flex items-center gap-2">
+                                            <i className="fa-solid fa-circle-arrow-down text-emerald-500"></i>
+                                            Kategori Pemasukan ({categories.filter(c => c.type === 'income').length})
+                                        </h3>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            {categories.filter(c => c.type === 'income').map(cat => (
+                                                <div key={cat.id} className="p-3 bg-slate-50 rounded-xl flex items-center gap-3 border border-slate-100">
+                                                    <div className={`w-9 h-9 rounded-lg ${cat.color} text-white flex items-center justify-center text-sm`}>
+                                                        <i className={`fa-solid ${cat.icon}`}></i>
+                                                    </div>
+                                                    <span className="font-semibold text-xs text-slate-800">{cat.name}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Pengeluaran Categories */}
+                                    <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+                                        <h3 className="font-bold text-slate-800 text-base mb-4 flex items-center gap-2">
+                                            <i className="fa-solid fa-circle-arrow-up text-rose-500"></i>
+                                            Kategori Pengeluaran ({categories.filter(c => c.type === 'expense').length})
+                                        </h3>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            {categories.filter(c => c.type === 'expense').map(cat => (
+                                                <div key={cat.id} className="p-3 bg-slate-50 rounded-xl flex items-center gap-3 border border-slate-100">
+                                                    <div className={`w-9 h-9 rounded-lg ${cat.color} text-white flex items-center justify-center text-sm`}>
+                                                        <i className={`fa-solid ${cat.icon}`}></i>
+                                                    </div>
+                                                    <span className="font-semibold text-xs text-slate-800">{cat.name}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </main>
+
+                    {}
+                    
+                    {/* MODAL 1: ADD TRANSACTION */}
+                    {modalType === 'transaction' && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6 relative animate-in fade-in zoom-in duration-200">
+                                <button
+                                    onClick={() => setModalType(null)}
+                                    className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"
+                                >
+                                    <i className="fa-solid fa-xmark text-lg"></i>
+                                </button>
+
+                                <h3 className="text-xl font-bold text-slate-800 mb-4">Catat Transaksi Baru</h3>
+
+                                <form onSubmit={handleAddTransaction} className="space-y-4">
+                                    {/* Transaction Type Selector */}
+                                    <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl">
+                                        <button
+                                            type="button"
+                                            onClick={() => setTxForm(p => ({
+                                                ...p,
+                                                type: 'expense',
+                                                categoryId: categories.find(c => c.type === 'expense')?.id || ''
+                                            }))}
+                                            className={`py-2 rounded-lg text-xs font-bold transition ${
+                                                txForm.type === 'expense' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                                            }`}
+                                        >
+                                            <i className="fa-solid fa-arrow-up mr-1.5"></i>
+                                            Pengeluaran
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setTxForm(p => ({
+                                                ...p,
+                                                type: 'income',
+                                                categoryId: categories.find(c => c.type === 'income')?.id || ''
+                                            }))}
+                                            className={`py-2 rounded-lg text-xs font-bold transition ${
+                                                txForm.type === 'income' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                                            }`}
+                                        >
+                                            <i className="fa-solid fa-arrow-down mr-1.5"></i>
+                                            Pemasukan
+                                        </button>
+                                    </div>
+
+                                    {/* Amount Input */}
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-600 mb-1">Nominal (Rp)</label>
+                                        <div className="relative">
+                                            <span className="absolute left-3.5 top-2.5 text-slate-400 font-bold text-sm">Rp</span>
+                                            <input
+                                                type="number"
+                                                required
+                                                placeholder="0"
+                                                value={txForm.amount}
+                                                onChange={e => setTxForm(p => ({ ...p, amount: e.target.value }))}
+                                                className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Account Selection */}
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-600 mb-1">Pilih Akun / Bank</label>
+                                        <select
+                                            value={txForm.accountId}
+                                            onChange={e => setTxForm(p => ({ ...p, accountId: e.target.value }))}
+                                            className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                        >
+                                            <option value="">-- Pilih Akun --</option>
+                                            {accounts.map(acc => (
+                                                <option key={acc.id} value={acc.id}>
+                                                    {acc.name} (Saldo: {formatRupiah(acc.balance)})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* Category Selection */}
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-600 mb-1">Kategori</label>
+                                        <select
+                                            value={txForm.categoryId}
+                                            onChange={e => setTxForm(p => ({ ...p, categoryId: e.target.value }))}
+                                            className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                        >
+                                            <option value="">-- Pilih Kategori --</option>
+                                            {categories.filter(c => c.type === txForm.type).map(cat => (
+                                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* Date Input */}
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-600 mb-1">Tanggal</label>
+                                        <input
+                                            type="date"
+                                            value={txForm.date}
+                                            onChange={e => setTxForm(p => ({ ...p, date: e.target.value }))}
+                                            className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                        />
+                                    </div>
+
+                                    {/* Description */}
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-600 mb-1">Deskripsi / Catatan</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Contoh: Beli makan siang, Bensin, dll"
+                                            value={txForm.description}
+                                            onChange={e => setTxForm(p => ({ ...p, description: e.target.value }))}
+                                            className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                        />
+                                    </div>
+
+                                    <div className="pt-2 flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setModalType(null)}
+                                            className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs rounded-xl"
+                                        >
+                                            Batal
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs rounded-xl shadow-md"
+                                        >
+                                            Simpan Transaksi
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* MODAL 2: TRANSFER BETWEEN ACCOUNTS */}
+                    {modalType === 'transfer' && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6 relative">
+                                <button
+                                    onClick={() => setModalType(null)}
+                                    className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"
+                                >
+                                    <i className="fa-solid fa-xmark text-lg"></i>
+                                </button>
+
+                                <h3 className="text-xl font-bold text-slate-800 mb-1">Transfer Antar Rekening</h3>
+                                <p className="text-xs text-slate-400 mb-4">Pindahkan saldo dari Cash, BCA, Mandiri, atau E-Wallet.</p>
+
+                                <form onSubmit={handleTransfer} className="space-y-4">
+                                    {/* Source Account */}
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-600 mb-1">Dari Akun / Rekening Asal</label>
+                                        <select
+                                            value={transferForm.fromAccountId}
+                                            onChange={e => setTransferForm(p => ({ ...p, fromAccountId: e.target.value }))}
+                                            className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                        >
+                                            <option value="">-- Pilih Akun Asal --</option>
+                                            {accounts.map(acc => (
+                                                <option key={acc.id} value={acc.id}>
+                                                    {acc.name} (Saldo: {formatRupiah(acc.balance)})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* Destination Account */}
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-600 mb-1">Ke Akun / Rekening Tujuan</label>
+                                        <select
+                                            value={transferForm.toAccountId}
+                                            onChange={e => setTransferForm(p => ({ ...p, toAccountId: e.target.value }))}
+                                            className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                        >
+                                            <option value="">-- Pilih Akun Tujuan --</option>
+                                            {accounts.map(acc => (
+                                                <option key={acc.id} value={acc.id}>
+                                                    {acc.name} (Saldo: {formatRupiah(acc.balance)})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* Amount */}
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-600 mb-1">Nominal Transfer (Rp)</label>
+                                            <input
+                                                type="number"
+                                                required
+                                                placeholder="0"
+                                                value={transferForm.amount}
+                                                onChange={e => setTransferForm(p => ({ ...p, amount: e.target.value }))}
+                                                className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-600 mb-1">Biaya Admin (Jika Ada)</label>
+                                            <input
+                                                type="number"
+                                                placeholder="0"
+                                                value={transferForm.fee}
+                                                onChange={e => setTransferForm(p => ({ ...p, fee: e.target.value }))}
+                                                className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Date & Note */}
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-600 mb-1">Tanggal & Deskripsi</label>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <input
+                                                type="date"
+                                                value={transferForm.date}
+                                                onChange={e => setTransferForm(p => ({ ...p, date: e.target.value }))}
+                                                className="py-2 px-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Catatan..."
+                                                value={transferForm.description}
+                                                onChange={e => setTransferForm(p => ({ ...p, description: e.target.value }))}
+                                                className="col-span-2 py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-2 flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setModalType(null)}
+                                            className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs rounded-xl"
+                                        >
+                                            Batal
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs rounded-xl shadow-md"
+                                        >
+                                            Proses Transfer
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* MODAL 3: ADD ACCOUNT */}
+                    {modalType === 'account' && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6 relative">
+                                <button
+                                    onClick={() => setModalType(null)}
+                                    className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"
+                                >
+                                    <i className="fa-solid fa-xmark text-lg"></i>
+                                </button>
+
+                                <h3 className="text-xl font-bold text-slate-800 mb-4">Tambah Akun / Rekening Bank</h3>
+
+                                <form onSubmit={handleAddAccount} className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-600 mb-1">Nama Bank / Akun</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            placeholder="Contoh: Bank BRI, ShopeePay, Dompet Utama"
+                                            value={accountForm.name}
+                                            onChange={e => setAccountForm(p => ({ ...p, name: e.target.value }))}
+                                            className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-600 mb-1">Tipe Akun</label>
+                                            <select
+                                                value={accountForm.type}
+                                                onChange={e => setAccountForm(p => ({ ...p, type: e.target.value }))}
+                                                className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                            >
+                                                <option value="Bank">Bank</option>
+                                                <option value="E-Wallet">E-Wallet</option>
+                                                <option value="Cash">Tunai / Cash</option>
+                                                <option value="Investasi">Investasi</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-slate-600 mb-1">Saldo Awal (Rp)</label>
+                                            <input
+                                                type="number"
+                                                placeholder="0"
+                                                value={accountForm.balance}
+                                                onChange={e => setAccountForm(p => ({ ...p, balance: e.target.value }))}
+                                                className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Icon Selector */}
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-600 mb-1">Ikon</label>
+                                        <div className="flex flex-wrap gap-2 max-h-28 overflow-y-auto custom-scrollbar p-2 bg-slate-50 border border-slate-200 rounded-xl">
+                                            {AVAILABLE_ICONS.map(icon => (
+                                                <button
+                                                    key={icon}
+                                                    type="button"
+                                                    onClick={() => setAccountForm(p => ({ ...p, icon }))}
+                                                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs transition ${
+                                                        accountForm.icon === icon ? 'bg-sky-600 text-white shadow-sm' : 'bg-white text-slate-600 border hover:bg-slate-100'
+                                                    }`}
+                                                >
+                                                    <i className={`fa-solid ${icon}`}></i>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Color Picker */}
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-600 mb-1">Warna Tema</label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {COLOR_OPTIONS.map(c => (
+                                                <button
+                                                    key={c.bg}
+                                                    type="button"
+                                                    onClick={() => setAccountForm(p => ({ ...p, color: c.bg, colorHex: c.hex }))}
+                                                    className={`w-7 h-7 rounded-full ${c.bg} flex items-center justify-center text-white text-xs ${
+                                                        accountForm.color === c.bg ? 'ring-2 ring-offset-2 ring-sky-500 scale-110' : ''
+                                                    }`}
+                                                >
+                                                    {accountForm.color === c.bg && <i className="fa-solid fa-check"></i>}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-2 flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setModalType(null)}
+                                            className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs rounded-xl"
+                                        >
+                                            Batal
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs rounded-xl shadow-md"
+                                        >
+                                            Simpan Akun
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* MODAL 4: ADD CATEGORY */}
+                    {modalType === 'category' && (
+                        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                            <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6 relative">
+                                <button
+                                    onClick={() => setModalType(null)}
+                                    className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"
+                                >
+                                    <i className="fa-solid fa-xmark text-lg"></i>
+                                </button>
+
+                                <h3 className="text-xl font-bold text-slate-800 mb-4">Tambah Kategori Kustom</h3>
+
+                                <form onSubmit={handleAddCategory} className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-600 mb-1">Nama Kategori</label>
+                                        <input
+                                            type="text"
+                                            required
+                                            placeholder="Contoh: Pulsa, Asuransi, Freelance"
+                                            value={categoryForm.name}
+                                            onChange={e => setCategoryForm(p => ({ ...p, name: e.target.value }))}
+                                            className="w-full py-2 px-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-600 mb-1">Tipe Kategori</label>
+                                        <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl">
+                                            <button
+                                                type="button"
+                                                onClick={() => setCategoryForm(p => ({ ...p, type: 'expense' }))}
+                                                className={`py-2 rounded-lg text-xs font-bold transition ${
+                                                    categoryForm.type === 'expense' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-600'
+                                                }`}
+                                            >
+                                                Pengeluaran
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setCategoryForm(p => ({ ...p, type: 'income' }))}
+                                                className={`py-2 rounded-lg text-xs font-bold transition ${
+                                                    categoryForm.type === 'income' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600'
+                                                }`}
+                                            >
+                                                Pemasukan
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Icon Selector */}
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-600 mb-1">Ikon</label>
+                                        <div className="flex flex-wrap gap-2 max-h-28 overflow-y-auto custom-scrollbar p-2 bg-slate-50 border border-slate-200 rounded-xl">
+                                            {AVAILABLE_ICONS.map(icon => (
+                                                <button
+                                                    key={icon}
+                                                    type="button"
+                                                    onClick={() => setCategoryForm(p => ({ ...p, icon }))}
+                                                    className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs transition ${
+                                                        categoryForm.icon === icon ? 'bg-sky-600 text-white shadow-sm' : 'bg-white text-slate-600 border hover:bg-slate-100'
+                                                    }`}
+                                                >
+                                                    <i className={`fa-solid ${icon}`}></i>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Color Picker */}
+                                    <div>
+                                        <label className="block text-xs font-medium text-slate-600 mb-1">Warna Ikon</label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {COLOR_OPTIONS.map(c => (
+                                                <button
+                                                    key={c.bg}
+                                                    type="button"
+                                                    onClick={() => setCategoryForm(p => ({ ...p, color: c.bg }))}
+                                                    className={`w-7 h-7 rounded-full ${c.bg} flex items-center justify-center text-white text-xs ${
+                                                        categoryForm.color === c.bg ? 'ring-2 ring-offset-2 ring-sky-500 scale-110' : ''
+                                                    }`}
+                                                >
+                                                    {categoryForm.color === c.bg && <i className="fa-solid fa-check"></i>}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-2 flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setModalType(null)}
+                                            className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold text-xs rounded-xl"
+                                        >
+                                            Batal
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="flex-1 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs rounded-xl shadow-md"
+                                        >
+                                            Simpan Kategori
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
